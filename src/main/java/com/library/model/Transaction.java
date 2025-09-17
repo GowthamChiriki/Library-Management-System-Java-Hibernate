@@ -44,7 +44,6 @@ public class Transaction {
         this.issueDate = issueDate;
         this.dueDate = issueDate.plusDays(loanPeriodDays);
         this.fine = 0.0;
-        this.status = TransactionStatus.ACTIVE;
     }
 
     // ===================== Getters & Setters =====================

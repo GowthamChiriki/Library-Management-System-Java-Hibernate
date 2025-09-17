@@ -57,13 +57,14 @@ public class TransactionService {
 
     // Return a book
     public String returnBook(Long userId, Long bookCopyId) {
+        // Fetch transaction with JOIN FETCH to avoid LazyInitializationException
         Transaction active = transactionDAO.findActiveTransactionByUserAndCopy(userId, bookCopyId);
         if (active == null) return "No active transaction found for this user and copy.";
 
         LocalDate today = LocalDate.now();
         active.setReturnDate(today);
 
-        // fine calculation
+        // Fine calculation
         double fine = 0.0;
         if (today.isAfter(active.getDueDate())) {
             long daysLate = ChronoUnit.DAYS.between(active.getDueDate(), today);
@@ -72,18 +73,21 @@ public class TransactionService {
         active.setFine(fine);
         transactionDAO.update(active);
 
-        // mark copy available
-        BookCopy copy = copyDAO.findById(bookCopyId);
+        // Mark copy available
+        BookCopy copy = active.getBookCopy(); // already fetched
         copy.setStatus(BookCopyStatus.AVAILABLE);
         copyDAO.update(copy);
 
-        // handle next reservation
+        String message = "Book returned. Fine: " + fine;
+
+        // Handle next reservation
         Reservation next = reservationService.peekNextReservation(copy.getBook().getId());
         if (next != null) {
-            reservationService.fulfillReservation(next);
+            // Mark copy issued to next reservation user
             copy.setStatus(BookCopyStatus.ISSUED);
             copyDAO.update(copy);
 
+            // Create transaction for reserved user
             Transaction newT = new Transaction();
             newT.setUser(next.getUser());
             newT.setBookCopy(copy);
@@ -92,15 +96,18 @@ public class TransactionService {
             newT.setFine(0.0);
             transactionDAO.save(newT);
 
-            return "Book returned. Fine: " + fine + ". Next reservation fulfilled and auto-issued to " + next.getUser().getEmail();
+            // Update reservation status
+            reservationService.fulfillReservation(next);
+
+            message += ". Next reservation fulfilled and auto-issued to " + next.getUser().getEmail();
         }
 
-        return "Book returned. Fine: " + fine;
+        return message;
     }
 
     // List all transactions (for admin)
     public List<Transaction> listAllTransactions() {
-        return transactionDAO.findAll();
+        return transactionDAO.findAll(); // DAO already fetches user and book eagerly
     }
 
     public List<Transaction> listUserTransactions(Long userId) {

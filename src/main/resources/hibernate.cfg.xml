@@ -6,12 +6,11 @@
     <session-factory>
         <!-- JDBC connection -->
         <property name="hibernate.connection.driver_class">com.mysql.cj.jdbc.Driver</property>
-        <property name="hibernate.connection.url">jdbc:mysql://localhost:3306/library_db?useSSL=false&amp;serverTimezone=UTC</property>
+        <property name="hibernate.connection.url">jdbc:mysql://localhost:3306/library_db</property>
         <property name="hibernate.connection.username">root</property>
         <property name="hibernate.connection.password">Gowtham@2929</property>
-
-        <!-- SQL dialect -->
         <property name="hibernate.dialect">org.hibernate.dialect.MySQL8Dialect</property>
+
 
         <!-- Schema generation (update creates/updates tables) -->
         <property name="hibernate.hbm2ddl.auto">update</property>

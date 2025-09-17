@@ -26,10 +26,17 @@ public class TransactionDAO {
         }
     }
 
-    // Find by ID
+    // Find transaction by ID with eager fetching
     public Transaction findById(Long id) {
         try (Session session = HibernateUtil.getSessionFactory().openSession()) {
-            return session.get(Transaction.class, id);
+            return session.createQuery(
+                            "select t from Transaction t " +
+                                    "join fetch t.user " +
+                                    "join fetch t.bookCopy bc " +
+                                    "join fetch bc.book " +
+                                    "where t.id = :id", Transaction.class)
+                    .setParameter("id", id)
+                    .uniqueResult();
         }
     }
 
@@ -37,7 +44,13 @@ public class TransactionDAO {
     public Transaction findActiveTransactionByUserAndCopy(Long userId, Long bookCopyId) {
         try (Session session = HibernateUtil.getSessionFactory().openSession()) {
             return session.createQuery(
-                            "from Transaction t where t.user.id = :userId and t.bookCopy.id = :copyId and t.returnDate is null",
+                            "select t from Transaction t " +
+                                    "join fetch t.user " +
+                                    "join fetch t.bookCopy bc " +
+                                    "join fetch bc.book " +
+                                    "where t.user.id = :userId " +
+                                    "and t.bookCopy.id = :copyId " +
+                                    "and t.returnDate is null",
                             Transaction.class)
                     .setParameter("userId", userId)
                     .setParameter("copyId", bookCopyId)
@@ -49,7 +62,11 @@ public class TransactionDAO {
     public List<Transaction> findTransactionsByUser(Long userId) {
         try (Session session = HibernateUtil.getSessionFactory().openSession()) {
             return session.createQuery(
-                            "from Transaction t where t.user.id = :userId order by t.issueDate desc",
+                            "select t from Transaction t " +
+                                    "join fetch t.bookCopy bc " +
+                                    "join fetch bc.book " +
+                                    "where t.user.id = :userId " +
+                                    "order by t.issueDate desc",
                             Transaction.class)
                     .setParameter("userId", userId)
                     .list();
@@ -60,16 +77,19 @@ public class TransactionDAO {
     public List<Transaction> findActiveTransactionsByUser(Long userId) {
         try (Session session = HibernateUtil.getSessionFactory().openSession()) {
             return session.createQuery(
-                            "from Transaction t where t.user.id = :userId and t.returnDate is null order by t.issueDate desc",
+                            "select t from Transaction t " +
+                                    "join fetch t.bookCopy bc " +
+                                    "join fetch bc.book " +
+                                    "where t.user.id = :userId " +
+                                    "and t.returnDate is null " +
+                                    "order by t.issueDate desc",
                             Transaction.class)
                     .setParameter("userId", userId)
                     .list();
         }
     }
 
-    // ---------- NEW METHOD ----------
-    // All transactions (for admin)
-    // All transactions (for admin) with necessary JOIN FETCH
+    // All transactions (for admin) with eager fetching of user and book copy
     public List<Transaction> findAll() {
         try (Session session = HibernateUtil.getSessionFactory().openSession()) {
             return session.createQuery(
@@ -82,5 +102,4 @@ public class TransactionDAO {
                     .list();
         }
     }
-
 }
