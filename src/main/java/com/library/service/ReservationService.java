@@ -9,7 +9,7 @@ import com.library.model.User;
 import java.util.List;
 
 /**
- * Service to manage book reservations and queuing.
+ * Service to manage book reservations and queueing.
  * Supports creating reservations, peeking next in queue, fulfilling reservations, and listing reservations.
  */
 public class ReservationService {
@@ -18,7 +18,7 @@ public class ReservationService {
     private final UserServiceHelper userHelper = new UserServiceHelper();
     private final BookServiceHelper bookHelper = new BookServiceHelper();
 
-    // Helper classes to avoid circular dependency
+    // ---------------- Helper classes to avoid circular dependencies ----------------
     static class UserServiceHelper {
         public User getById(Long id) {
             return new com.library.dao.UserDAO().findById(id);
@@ -31,8 +31,11 @@ public class ReservationService {
         }
     }
 
+    // ---------------- Core Reservation Methods ----------------
+
     /**
      * Creates a new reservation for a book by a user.
+     * Checks against the book's maxReservationsPerUser limit.
      *
      * @param userId the user making the reservation
      * @param bookId the book to reserve
@@ -41,20 +44,34 @@ public class ReservationService {
     public Reservation createReservation(Long userId, Long bookId) {
         User user = userHelper.getById(userId);
         Book book = bookHelper.getById(bookId);
+
         if (user == null || book == null) {
             throw new RuntimeException("User or Book not found");
         }
 
+        // Count user's active WAITING reservations for this book
+        long existingReservations = reservationDAO.findByUserId(userId).stream()
+                .filter(r -> r.getBook().getId().equals(bookId) && r.getStatus() == ReservationStatus.WAITING)
+                .count();
+
+        if (existingReservations >= book.getMaxReservationsPerUser()) {
+            throw new RuntimeException(
+                    "Cannot reserve more than " + book.getMaxReservationsPerUser() + " copies of this book"
+            );
+        }
+
+        // Create and save new reservation
         Reservation reservation = new Reservation(user, book);
         reservation.setStatus(ReservationStatus.WAITING);
         reservationDAO.save(reservation);
+
         return reservation;
     }
 
     /**
-     * Returns the first waiting reservation for a book (FIFO).
+     * Returns the first waiting reservation for a book (FIFO order).
      *
-     * @param bookId the book id
+     * @param bookId the book ID
      * @return the next reservation in queue or null if none
      */
     public Reservation peekNextReservation(Long bookId) {

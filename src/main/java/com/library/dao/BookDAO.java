@@ -49,14 +49,16 @@ public class BookDAO {
     public List<Book> searchByTitle(String title) {
         try (Session session = HibernateUtil.getSessionFactory().openSession()) {
             return session.createQuery("from Book where lower(title) like :t", Book.class)
-                    .setParameter("t", "%" + title.toLowerCase() + "%").list();
+                    .setParameter("t", "%" + title.toLowerCase() + "%")
+                    .list();
         }
     }
 
     public List<Book> searchByAuthor(String author) {
         try (Session session = HibernateUtil.getSessionFactory().openSession()) {
             return session.createQuery("from Book where lower(author) like :a", Book.class)
-                    .setParameter("a", "%" + author.toLowerCase() + "%").list();
+                    .setParameter("a", "%" + author.toLowerCase() + "%")
+                    .list();
         }
     }
 
@@ -64,5 +66,11 @@ public class BookDAO {
         try (Session session = HibernateUtil.getSessionFactory().openSession()) {
             return session.createQuery("from Book", Book.class).list();
         }
+    }
+
+    // Optional helper to update maxReservationsPerUser
+    public void updateMaxReservations(Book book, int maxReservations) {
+        book.setMaxReservationsPerUser(maxReservations);
+        update(book);
     }
 }

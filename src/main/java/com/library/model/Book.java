@@ -5,22 +5,25 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name="books")
+@Table(name = "books")
 public class Book {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable=false)
+    @Column(nullable = false)
     private String title;
 
     private String author;
 
-    @Column(unique=true)
+    @Column(unique = true)
     private String isbn;
 
     private String category;
+
+    @Column(name = "max_reservations_per_user")
+    private int maxReservationsPerUser = 3; // default value
 
     // One Book -> Many BookCopies, fetch eagerly to avoid LazyInitializationException
     @OneToMany(mappedBy = "book", fetch = FetchType.EAGER, cascade = CascadeType.ALL, orphanRemoval = true)
@@ -46,7 +49,7 @@ public class Book {
         copy.setBook(null);
     }
 
-    // getters and setters
+    // ================== Getters & Setters ==================
     public Long getId() { return id; }
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
@@ -58,9 +61,11 @@ public class Book {
     public void setCategory(String category) { this.category = category; }
     public List<BookCopy> getCopies() { return copies; }
 
+    public int getMaxReservationsPerUser() { return maxReservationsPerUser; }
+    public void setMaxReservationsPerUser(int maxReservationsPerUser) { this.maxReservationsPerUser = maxReservationsPerUser; }
+
     @Override
     public String toString() {
-        // safe printing: only count copies, do not trigger lazy load
         return "Book{" +
                 "id=" + id +
                 ", title='" + title + '\'' +
@@ -68,6 +73,7 @@ public class Book {
                 ", isbn='" + isbn + '\'' +
                 ", category='" + category + '\'' +
                 ", copiesCount=" + (copies != null ? copies.size() : 0) +
+                ", maxReservationsPerUser=" + maxReservationsPerUser +
                 '}';
     }
 }

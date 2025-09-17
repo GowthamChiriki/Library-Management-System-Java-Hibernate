@@ -8,6 +8,10 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 
+/**
+ * Service for handling book issue, return, and transactions.
+ * Supports fines, loan period, and automatic reservation fulfillment.
+ */
 public class TransactionService {
 
     private final TransactionDAO transactionDAO = new TransactionDAO();
@@ -17,14 +21,14 @@ public class TransactionService {
     private final ReservationService reservationService;
 
     // Loan policy
-    private final int loanPeriodDays = 7; // default 1 week
-    private final double finePerDay = 20.0; // 20 rupees/day late
+    private final int loanPeriodDays = 7;      // default 1 week
+    private final double finePerDay = 20.0;    // 20 rupees/day late
 
     public TransactionService(ReservationService reservationService) {
         this.reservationService = reservationService;
     }
 
-    // Issue a book
+    // -------------------- Issue Book --------------------
     public String issueBook(Long userId, Long bookId) {
         User user = userDAO.findById(userId);
         if (user == null) return "User not found";
@@ -32,12 +36,23 @@ public class TransactionService {
         Book book = bookDAO.findById(bookId);
         if (book == null) return "Book not found";
 
+        // Check for available copy
         BookCopy available = copyDAO.findAvailableCopyByBookId(bookId);
         if (available == null) {
+            // Enforce maxReservationsPerUser
+            long userReservations = reservationService.listReservationsForUser(userId).stream()
+                    .filter(r -> r.getBook().getId().equals(bookId) && r.getStatus() == ReservationStatus.WAITING)
+                    .count();
+
+            if (userReservations >= book.getMaxReservationsPerUser()) {
+                return "No copies available and you have reached the maximum reservations for this book.";
+            }
+
             reservationService.createReservation(userId, bookId);
             return "No copies available. Reservation added to queue.";
         }
 
+        // Issue the available copy
         available.setStatus(BookCopyStatus.ISSUED);
         copyDAO.update(available);
 
@@ -50,14 +65,14 @@ public class TransactionService {
         t.setIssueDate(issueDate);
         t.setDueDate(dueDate);
         t.setFine(0.0);
+        t.setStatus(TransactionStatus.ACTIVE);
 
         transactionDAO.save(t);
         return "Book issued. Copy id: " + available.getId() + ", due date: " + dueDate;
     }
 
-    // Return a book
+    // -------------------- Return Book --------------------
     public String returnBook(Long userId, Long bookCopyId) {
-        // Fetch transaction with JOIN FETCH to avoid LazyInitializationException
         Transaction active = transactionDAO.findActiveTransactionByUserAndCopy(userId, bookCopyId);
         if (active == null) return "No active transaction found for this user and copy.";
 
@@ -71,43 +86,50 @@ public class TransactionService {
             fine = daysLate * finePerDay;
         }
         active.setFine(fine);
+        active.setStatus(TransactionStatus.CLOSED);
         transactionDAO.update(active);
 
         // Mark copy available
-        BookCopy copy = active.getBookCopy(); // already fetched
+        BookCopy copy = active.getBookCopy();
         copy.setStatus(BookCopyStatus.AVAILABLE);
         copyDAO.update(copy);
 
         String message = "Book returned. Fine: " + fine;
 
-        // Handle next reservation
+        // Handle next reservation in queue
         Reservation next = reservationService.peekNextReservation(copy.getBook().getId());
         if (next != null) {
-            // Mark copy issued to next reservation user
-            copy.setStatus(BookCopyStatus.ISSUED);
-            copyDAO.update(copy);
+            // Check maxReservationsPerUser for next user
+            long nextUserReservations = reservationService.listReservationsForUser(next.getUser().getId()).stream()
+                    .filter(r -> r.getBook().getId().equals(copy.getBook().getId()) && r.getStatus() == ReservationStatus.WAITING)
+                    .count();
 
-            // Create transaction for reserved user
-            Transaction newT = new Transaction();
-            newT.setUser(next.getUser());
-            newT.setBookCopy(copy);
-            newT.setIssueDate(LocalDate.now());
-            newT.setDueDate(LocalDate.now().plusDays(loanPeriodDays));
-            newT.setFine(0.0);
-            transactionDAO.save(newT);
+            if (nextUserReservations <= copy.getBook().getMaxReservationsPerUser()) {
+                // Issue book to next reservation
+                copy.setStatus(BookCopyStatus.ISSUED);
+                copyDAO.update(copy);
 
-            // Update reservation status
-            reservationService.fulfillReservation(next);
+                Transaction newT = new Transaction();
+                newT.setUser(next.getUser());
+                newT.setBookCopy(copy);
+                newT.setIssueDate(LocalDate.now());
+                newT.setDueDate(LocalDate.now().plusDays(loanPeriodDays));
+                newT.setFine(0.0);
+                newT.setStatus(TransactionStatus.ACTIVE);
+                transactionDAO.save(newT);
 
-            message += ". Next reservation fulfilled and auto-issued to " + next.getUser().getEmail();
+                // Fulfill reservation
+                reservationService.fulfillReservation(next);
+                message += ". Next reservation fulfilled and auto-issued to " + next.getUser().getEmail();
+            }
         }
 
         return message;
     }
 
-    // List all transactions (for admin)
+    // -------------------- Transaction Queries --------------------
     public List<Transaction> listAllTransactions() {
-        return transactionDAO.findAll(); // DAO already fetches user and book eagerly
+        return transactionDAO.findAll();
     }
 
     public List<Transaction> listUserTransactions(Long userId) {
@@ -118,12 +140,7 @@ public class TransactionService {
         return transactionDAO.findActiveTransactionsByUser(userId);
     }
 
-    // Getter for loan period
-    public int getLoanPeriodDays() {
-        return loanPeriodDays;
-    }
-
-    public double getFinePerDay() {
-        return finePerDay;
-    }
+    // -------------------- Loan Policy Getters --------------------
+    public int getLoanPeriodDays() { return loanPeriodDays; }
+    public double getFinePerDay() { return finePerDay; }
 }
