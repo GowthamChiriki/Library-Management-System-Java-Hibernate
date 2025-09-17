@@ -15,6 +15,11 @@
 - [Author](#author)
 
 ---
+## Recent Updates
+- Added support for `maxReservationsPerUser` per book.
+- Improved transaction handling (issue, return, fines, auto-reservation fulfillment).
+- Updated BookDAO, ReservationService, and TransactionService.
+
 
 ## Overview
 This is a **console-based Library Management System** that supports multiple user roles: **Admin**, **Librarian**, and **Member**.  
