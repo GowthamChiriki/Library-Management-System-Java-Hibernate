@@ -1,8 +1,10 @@
 package com.library.dao;
 
 import com.library.model.Transaction;
+import com.library.model.TransactionStatus;
 import com.library.util.HibernateUtil;
 import org.hibernate.Session;
+import org.hibernate.query.Query;
 
 import java.util.List;
 
@@ -102,4 +104,24 @@ public class TransactionDAO {
                     .list();
         }
     }
+    public List<Transaction> findAllActiveTransactions() {
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            return session.createQuery(
+                            "from Transaction t where t.status = :active", Transaction.class)
+                    .setParameter("active", TransactionStatus.ACTIVE)
+                    .list();
+        }
+    }
+
+    public List<com.library.model.Transaction> getAllActiveTransactions() {
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            Query<Transaction> query = session.createQuery(
+                    "FROM Transaction t WHERE t.status = :status",
+                    com.library.model.Transaction.class
+            );
+            query.setParameter("status", TransactionStatus.ACTIVE);
+            return query.list();
+        }
+    }
+
 }

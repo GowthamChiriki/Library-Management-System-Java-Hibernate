@@ -15,10 +15,14 @@ public class LibraryApp {
     private static final BookService bookService = new BookService();
     private static final ReservationService reservationService = new ReservationService();
     private static final TransactionService transactionService = new TransactionService(reservationService);
+    private static ReminderService reminderService;
 
     public static void main(String[] args) {
         createDefaultAdmin();
         System.out.println("=== Library Management System (Console) ===");
+
+        // Start reminder service for daily email notifications
+        reminderService = new ReminderService(transactionService);
 
         boolean running = true;
         while (running) {
@@ -99,10 +103,14 @@ public class LibraryApp {
             String opt = scanner.nextLine().trim();
             switch (opt) {
                 case "1":
-                    System.out.print("Name: "); String name = scanner.nextLine().trim();
-                    System.out.print("Email: "); String email = scanner.nextLine().trim();
-                    System.out.print("Password: "); String pwd = scanner.nextLine().trim();
-                    System.out.print("Role (ADMIN/LIBRARIAN/MEMBER): "); String roleStr = scanner.nextLine().trim();
+                    System.out.print("Name: ");
+                    String name = scanner.nextLine().trim();
+                    System.out.print("Email: ");
+                    String email = scanner.nextLine().trim();
+                    System.out.print("Password: ");
+                    String pwd = scanner.nextLine().trim();
+                    System.out.print("Role (ADMIN/LIBRARIAN/MEMBER): ");
+                    String roleStr = scanner.nextLine().trim();
                     try {
                         Role role = Role.valueOf(roleStr.toUpperCase());
                         authService.createUser(name, email, pwd, role);
@@ -145,12 +153,13 @@ public class LibraryApp {
                     System.out.print("Author: "); String author = scanner.nextLine().trim();
                     System.out.print("ISBN: "); String isbn = scanner.nextLine().trim();
                     System.out.print("Category: "); String cat = scanner.nextLine().trim();
-                    System.out.print("Number of copies: "); int copies = Integer.parseInt(scanner.nextLine());
+                    System.out.print("Number of copies: ");
+                    int copies = Integer.parseInt(scanner.nextLine().trim());
                     Book b = bookService.addBook(title, author, isbn, cat, copies);
                     System.out.println("Added book: " + b);
                     break;
                 case "2":
-                    System.out.print("Book id to update: "); Long id = Long.parseLong(scanner.nextLine());
+                    System.out.print("Book id to update: "); Long id = Long.parseLong(scanner.nextLine().trim());
                     Book book = bookService.findById(id);
                     if (book == null) { System.out.println("Not found"); break; }
                     System.out.print("New title (blank to keep): "); String nt = scanner.nextLine().trim();
@@ -163,7 +172,7 @@ public class LibraryApp {
                     System.out.println("Updated.");
                     break;
                 case "3":
-                    System.out.print("Book id to delete: "); Long delId = Long.parseLong(scanner.nextLine());
+                    System.out.print("Book id to delete: "); Long delId = Long.parseLong(scanner.nextLine().trim());
                     bookService.deleteBook(delId);
                     System.out.println("Deleted if existed.");
                     break;
@@ -181,14 +190,10 @@ public class LibraryApp {
         List<Transaction> transactions = transactionService.listAllTransactions();
         int loanDays = transactionService.getLoanPeriodDays();
 
-        long totalTx = transactions.size();
-        long activeTx = transactions.stream().filter(t -> t.getReturnDate() == null || t.getReturnDate().isAfter(LocalDate.now())).count();
-        double totalFines = transactions.stream().mapToDouble(t -> t.getFine() != null ? t.getFine() : 0.0).sum();
-
         System.out.println("\n=== Transactions Summary ===");
-        System.out.println("Total transactions: " + totalTx);
-        System.out.println("Active transactions: " + activeTx);
-        System.out.println("Total fines collected: " + totalFines);
+        System.out.println("Total transactions: " + transactions.size());
+        System.out.println("Active transactions: " + transactions.stream().filter(t -> t.getReturnDate() == null || t.getReturnDate().isAfter(LocalDate.now())).count());
+        System.out.println("Total fines collected: " + transactions.stream().mapToDouble(t -> t.getFine() != null ? t.getFine() : 0.0).sum());
 
         System.out.println("\n=== All Transactions ===");
         System.out.printf("%-5s %-20s %-30s %-7s %-12s %-12s %-12s %-7s%n",
@@ -229,14 +234,14 @@ public class LibraryApp {
                     String bookInp = scanner.nextLine().trim();
                     Long bookId = bookInp.startsWith("isbn:") ?
                             bookService.findByIsbn(bookInp.substring(5)).getId() :
-                            Long.parseLong(bookInp);
+                            Long.parseLong(bookInp.trim());
                     System.out.println(transactionService.issueBook(member.getId(), bookId));
                     break;
                 case "2":
                     System.out.print("Member email: "); String memE = scanner.nextLine().trim();
                     User mem = authService.findByEmail(memE);
                     if (mem == null) { System.out.println("Member not found"); break; }
-                    System.out.print("Book copy id to return: "); Long copyId = Long.parseLong(scanner.nextLine());
+                    System.out.print("Book copy id to return: "); Long copyId = Long.parseLong(scanner.nextLine().trim());
                     System.out.println(transactionService.returnBook(mem.getId(), copyId));
                     break;
                 case "3":
@@ -282,11 +287,11 @@ public class LibraryApp {
                     });
                     break;
                 case "3":
-                    System.out.print("Book id to borrow: "); Long bid = Long.parseLong(scanner.nextLine());
+                    System.out.print("Book id to borrow: "); Long bid = Long.parseLong(scanner.nextLine().trim());
                     System.out.println(transactionService.issueBook(member.getId(), bid));
                     break;
                 case "4":
-                    System.out.print("Book copy id to return: "); Long cid = Long.parseLong(scanner.nextLine());
+                    System.out.print("Book copy id to return: "); Long cid = Long.parseLong(scanner.nextLine().trim());
                     System.out.println(transactionService.returnBook(member.getId(), cid));
                     break;
                 case "5":

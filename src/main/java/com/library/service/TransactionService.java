@@ -3,6 +3,7 @@ package com.library.service;
 import com.library.dao.BookCopyDAO;
 import com.library.dao.TransactionDAO;
 import com.library.model.*;
+import com.library.util.EmailUtil;
 
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
@@ -84,6 +85,20 @@ public class TransactionService {
         if (today.isAfter(active.getDueDate())) {
             long daysLate = ChronoUnit.DAYS.between(active.getDueDate(), today);
             fine = daysLate * finePerDay;
+            // Send fine notification email
+            try {
+                EmailUtil.sendEmail(
+                        active.getUser().getEmail(),
+                        "Book Returned Late - Fine Notice",
+                        "Hello " + active.getUser().getName() + ",\n\n" +
+                                "You returned the book '" + active.getBookCopy().getBook().getTitle() + "' late.\n" +
+                                "Days late: " + ChronoUnit.DAYS.between(active.getDueDate(), today) + "\n" +
+                                "Fine: " + fine + " rupees\n" +
+                                "Please pay the fine at the library."
+                );
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
         active.setFine(fine);
         active.setStatus(TransactionStatus.CLOSED);
@@ -96,36 +111,54 @@ public class TransactionService {
 
         String message = "Book returned. Fine: " + fine;
 
-        // Handle next reservation in queue
+        // Handle next reservation
         Reservation next = reservationService.peekNextReservation(copy.getBook().getId());
         if (next != null) {
-            // Check maxReservationsPerUser for next user
-            long nextUserReservations = reservationService.listReservationsForUser(next.getUser().getId()).stream()
-                    .filter(r -> r.getBook().getId().equals(copy.getBook().getId()) && r.getStatus() == ReservationStatus.WAITING)
-                    .count();
+            copy.setStatus(BookCopyStatus.ISSUED);
+            copyDAO.update(copy);
 
-            if (nextUserReservations <= copy.getBook().getMaxReservationsPerUser()) {
-                // Issue book to next reservation
-                copy.setStatus(BookCopyStatus.ISSUED);
-                copyDAO.update(copy);
+            Transaction newT = new Transaction();
+            newT.setUser(next.getUser());
+            newT.setBookCopy(copy);
+            newT.setIssueDate(LocalDate.now());
+            newT.setDueDate(LocalDate.now().plusDays(loanPeriodDays));
+            newT.setFine(0.0);
+            newT.setStatus(TransactionStatus.ACTIVE);
+            transactionDAO.save(newT);
 
-                Transaction newT = new Transaction();
-                newT.setUser(next.getUser());
-                newT.setBookCopy(copy);
-                newT.setIssueDate(LocalDate.now());
-                newT.setDueDate(LocalDate.now().plusDays(loanPeriodDays));
-                newT.setFine(0.0);
-                newT.setStatus(TransactionStatus.ACTIVE);
-                transactionDAO.save(newT);
+            reservationService.fulfillReservation(next);
 
-                // Fulfill reservation
-                reservationService.fulfillReservation(next);
-                message += ". Next reservation fulfilled and auto-issued to " + next.getUser().getEmail();
+            try {
+                // 1️ Mail: Book is ready to collect
+                EmailUtil.sendEmail(
+                        next.getUser().getEmail(),
+                        "Your reserved book is ready!",
+                        "Hello " + next.getUser().getName() + ",\n\n" +
+                                "The book '" + copy.getBook().getTitle() + "' is now available at the library.\n" +
+                                "Please come and collect it."
+                );
+
+                // 2 Mail: Issue and return details
+                EmailUtil.sendEmail(
+                        next.getUser().getEmail(),
+                        "Book Issued Details",
+                        "Hello " + next.getUser().getName() + ",\n\n" +
+                                "The book '" + copy.getBook().getTitle() + "' has been issued to you.\n" +
+                                "Issue Date: " + newT.getIssueDate() + "\n" +
+                                "Due Date: " + newT.getDueDate() + "\n\n" +
+                                "If you fail to return before the due date, a fine of Rs. 20 per day will be applied.\n\n" +
+                                "Happy reading!\nLibrary Team"
+                );
+
+            } catch (Exception e) {
+                e.printStackTrace();
             }
         }
 
+
         return message;
     }
+
 
     // -------------------- Transaction Queries --------------------
     public List<Transaction> listAllTransactions() {
@@ -139,6 +172,11 @@ public class TransactionService {
     public List<Transaction> listActiveUserTransactions(Long userId) {
         return transactionDAO.findActiveTransactionsByUser(userId);
     }
+    // Get all active transactions
+    public List<Transaction> listAllActiveTransactions() {
+        return transactionDAO.findAllActiveTransactions();
+    }
+
 
     // -------------------- Loan Policy Getters --------------------
     public int getLoanPeriodDays() { return loanPeriodDays; }
