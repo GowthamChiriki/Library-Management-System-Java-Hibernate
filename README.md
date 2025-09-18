@@ -16,9 +16,7 @@
 
 ---
 ## Recent Updates
-- Added support for `maxReservationsPerUser` per book.
-- Improved transaction handling (issue, return, fines, auto-reservation fulfillment).
-- Updated BookDAO, ReservationService, and TransactionService.
+
 
 
 ## Overview
@@ -34,6 +32,9 @@ It allows managing books, book copies, users, transactions, and reservations usi
 - Add, update, and delete books.
 - View all transactions and fines.
 - Role-based access control.
+- Added support for `maxReservationsPerUser` per book.
+- Improved transaction handling (issue, return, fines, auto-reservation fulfillment).
+- Updated BookDAO, ReservationService, and TransactionService.
 
 ### Librarian
 - Issue and return books.
