@@ -26,15 +26,22 @@ It allows managing books, book copies, users, transactions, and reservations usi
 ---
 
 ## Features
+- 📖 **Book Management** – Add, update, delete, and view books.
+- 👤 **User Management** – Multiple types of users (Admin, Librarian, Members).
+- 🔄 **Transaction Handling** – Issue and return books with due dates.
+- ⏳ **Reservation System** – Reserve books if they are already borrowed.
+- 📧 **Email Notifications** – 
+  - Notify users when reserved books are available.  
+  - Send issue & return confirmation emails.  
+  - Daily reminder emails for due dates (fine applied after deadline).
+- ⚡ **Automated Reminder Service** – Runs every day at 9 AM and notifies users about due dates.
 
 ### Admin
 - Create, update, and delete users.
 - Add, update, and delete books.
 - View all transactions and fines.
 - Role-based access control.
-- Added support for `maxReservationsPerUser` per book.
-- Improved transaction handling (issue, return, fines, auto-reservation fulfillment).
-- Updated BookDAO, ReservationService, and TransactionService.
+
 
 ### Librarian
 - Issue and return books.
