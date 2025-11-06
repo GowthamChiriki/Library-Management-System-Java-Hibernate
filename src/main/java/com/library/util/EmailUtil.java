@@ -6,8 +6,8 @@ import java.util.Properties;
 
 public class EmailUtil {
 
-    private static final String FROM_EMAIL = "gowthamsai167@gmail.com";
-    private static final String APP_PASSWORD = "artakdgreodnepmm"; // no spaces!
+    private static final String FROM_EMAIL = "";
+    private static final String APP_PASSWORD = ""; // no spaces!
 
     public static void sendEmail(String toEmail, String subject, String body) throws MessagingException {
         Properties props = new Properties();
